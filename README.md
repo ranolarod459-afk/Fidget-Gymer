@@ -109,7 +109,4 @@ Open it on your Android phone
 Allow install from unknown sources if prompted
 
 Launch Fidget Gymer from your app drawer
-
-Notes
-This is a personal project built to solve a specific problem in the author's training routine. It's not on the Play Store; distribution is via GitHub Releases (sideload-only). Built entirely with free-tier tooling — Expo, EAS, and open-source dependencies. No paid services, no proprietary SDKs.
 ```
