@@ -185,6 +185,7 @@ export function GalagaGame() {
   const uiBlocked = useWorkout((s) => s.uiBlocked);
   const stateRef = useRef<GalagaState>(createGalaga());
   const lastRenderRef = useRef(0);
+  const deathReportedRef = useRef(false);
 
   const [frame, setFrame] = useState<GalagaState>(() => stateRef.current);
   const alive = frame.alive;
@@ -214,9 +215,6 @@ export function GalagaGame() {
     if (!next.alive && prev.alive) {
       lastRenderRef.current = 0;
       setFrame(next);
-      setStatus("dead");
-      playDeath();
-      submitScore("galaga", next.score);
       return;
     }
 
@@ -234,6 +232,7 @@ export function GalagaGame() {
       lastRenderRef.current = 0;
       setFrame(fresh);
       setScore(0);
+      deathReportedRef.current = false;
     }
   }, [status, setScore]);
 
@@ -245,8 +244,23 @@ export function GalagaGame() {
       setFrame(fresh);
       setStatus("ready");
       setScore(0);
+      deathReportedRef.current = false;
     }
   }, [phase, setStatus, setScore]);
+
+  // Report death once per life. Mirrors the Snake pattern exactly so the
+  // high score write is not lost when the game loop returns early.
+  useEffect(() => {
+    if (!isAlive && !deathReportedRef.current) {
+      deathReportedRef.current = true;
+      setStatus("dead");
+      playDeath();
+      submitScore("galaga", frame.score);
+    }
+    if (isAlive) {
+      deathReportedRef.current = false;
+    }
+  }, [isAlive, setStatus, submitScore, frame.score]);
 
   const onTouch = (e: any) => {
     if (!stateRef.current.alive) return;

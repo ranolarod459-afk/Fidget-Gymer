@@ -11,15 +11,8 @@ interface WorkoutState {
   restRemainingSec: number;
   setsCompleted: number;
   highScores: Record<GameType, number>;
-
   activeGame: GameType;
   countdown: number | null;
-
-  /**
-   * When true, all game loops freeze but the rest timer keeps ticking.
-   * Used by the game picker overlay so switching games pauses the action
-   * without pausing the workout.
-   */
   uiBlocked: boolean;
 
   start: (durationSec: number, game: GameType) => void;
@@ -36,6 +29,17 @@ interface WorkoutState {
   clearCountdown: () => void;
 
   setUiBlocked: (blocked: boolean) => void;
+}
+
+function normalizeHighScores(
+  raw: Partial<Record<GameType, number>> | undefined,
+): Record<GameType, number> {
+  const r = raw ?? {};
+  return {
+    snake: Number.isFinite(r.snake) ? (r.snake as number) : 0,
+    flappy: Number.isFinite(r.flappy) ? (r.flappy as number) : 0,
+    galaga: Number.isFinite(r.galaga) ? (r.galaga as number) : 0,
+  };
 }
 
 export const useWorkout = create<WorkoutState>()(
@@ -64,8 +68,6 @@ export const useWorkout = create<WorkoutState>()(
       tickRest: () => {
         const { phase, restRemainingSec } = get();
         if (phase !== "playing") return;
-        // Note: we do NOT check uiBlocked here. The rest timer keeps
-        // ticking even while the picker is open.
         const next = restRemainingSec - 1;
         if (next <= 0) {
           set({ restRemainingSec: 0, phase: "restOver", countdown: null });
@@ -108,19 +110,22 @@ export const useWorkout = create<WorkoutState>()(
         }),
 
       submitScore: (game, score) =>
-        set((s) => ({
-          highScores: {
-            ...s.highScores,
-            [game]: Math.max(s.highScores[game] ?? 0, score),
-          },
-        })),
+        set((s) => {
+          const current = s.highScores[game];
+          const safeCurrent = Number.isFinite(current) ? current : 0;
+          const safeScore = Number.isFinite(score) ? score : 0;
+          const next = Math.max(safeCurrent, safeScore);
+          if (next === current) return s;
+          return {
+            highScores: { ...s.highScores, [game]: next },
+          };
+        }),
 
       beginCountdown: () => set({ countdown: 3 }),
 
       tickCountdown: () => {
-        const { countdown, uiBlocked } = get();
+        const { countdown } = get();
         if (countdown === null) return;
-        if (uiBlocked) return; // freeze countdown while picker is open
         if (countdown <= 1) {
           set({ countdown: 0 });
         } else {
@@ -137,19 +142,11 @@ export const useWorkout = create<WorkoutState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ highScores: s.highScores }),
       merge: (persisted, current) => {
-        const persistedAny = (persisted ?? {}) as Partial<WorkoutState>;
-        const persistedHigh = (persistedAny.highScores ?? {}) as Partial<
-          Record<GameType, number>
-        >;
+        const p = (persisted ?? {}) as Partial<WorkoutState>;
         return {
           ...current,
-          ...persistedAny,
-          // Ensure every game has a numeric high score, defaulting to 0.
-          highScores: {
-            snake: persistedHigh.snake ?? 0,
-            flappy: persistedHigh.flappy ?? 0,
-            galaga: persistedHigh.galaga ?? 0,
-          },
+          ...p,
+          highScores: normalizeHighScores(p.highScores),
         };
       },
     },

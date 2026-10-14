@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { colors, fonts } from "../theme/colors";
 import { useGame } from "../state/gameStore";
 import { useWorkout } from "../state/workoutStore";
-import { useSettings } from "../state/settingsStore";
 import { PixelButton } from "./PixelButton";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -16,16 +15,22 @@ interface Props {
 export function GameOverOverlay({ onPlayAgain, onQuit }: Props) {
   const status = useGame((s) => s.status);
   const score = useGame((s) => s.score);
-  const selectedGame = useSettings((s) => s.selectedGame);
   const phase = useWorkout((s) => s.phase);
+  const activeGame = useWorkout((s) => s.activeGame);
   const snakeHigh = useWorkout((s) => s.highScores.snake);
   const flappyHigh = useWorkout((s) => s.highScores.flappy);
+  const galagaHigh = useWorkout((s) => s.highScores.galaga);
 
   if (status !== "dead") return null;
-  // RestOver always wins over GameOver.
   if (phase === "restOver") return null;
 
-  const best = selectedGame === "snake" ? snakeHigh : flappyHigh;
+  const rawBest =
+    activeGame === "flappy"
+      ? flappyHigh
+      : activeGame === "galaga"
+        ? galagaHigh
+        : snakeHigh;
+  const best = Number.isFinite(rawBest) ? rawBest : 0;
 
   return (
     <View style={styles.overlay} pointerEvents="box-none">
