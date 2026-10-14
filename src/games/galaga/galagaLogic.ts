@@ -27,14 +27,14 @@ export const ENEMY_WIDTH = 0.07;
 export const ENEMY_HEIGHT = 0.05;
 
 /** Enemy speeds (normalized units/sec) by type. */
-export const DIVER_SPEED = 0.75;
+export const DIVER_SPEED = 0.7;
 export const SHOOTER_SPEED = 0.22;
 export const CHASER_SPEED = 0.3;
 
 /** Enemy fire cooldown ranges by type, in seconds. */
-export const SHOOTER_FIRE_MIN = 1.0;
-export const SHOOTER_FIRE_MAX = 1.4;
-export const CHASER_FIRE_MIN = 1.2;
+export const SHOOTER_FIRE_MIN = 1.4;
+export const SHOOTER_FIRE_MAX = 1.7;
+export const CHASER_FIRE_MIN = 1.4;
 export const CHASER_FIRE_MAX = 2.0;
 
 /** Chaser horizontal tracking strength. */
