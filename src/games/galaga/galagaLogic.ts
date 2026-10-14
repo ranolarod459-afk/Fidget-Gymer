@@ -43,8 +43,8 @@ export const CHASER_TRACK_STRENGTH = 0.3;
 export const BOSS_PHASE_DURATION = 1.5;
 
 export const SPAWN_INTERVAL_START = 1.0;
-export const SPAWN_INTERVAL_FLOOR = 0.6;
-export const MAX_ENEMIES = 10;
+export const SPAWN_INTERVAL_FLOOR = 0.4;
+export const MAX_ENEMIES = 12;
 
 export type EnemyKind = "worker" | "soldier" | "boss";
 
