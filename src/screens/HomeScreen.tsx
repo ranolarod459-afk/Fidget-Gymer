@@ -1,13 +1,5 @@
 import React from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  Switch,
-  Platform,
-} from "react-native";
+import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -22,6 +14,7 @@ import {
   HourglassIcon,
   SnakeIcon,
   BirdIcon,
+  GalagaIcon,
 } from "../components/PixelIcon";
 import { ensureNotificationPermission } from "../utils/notifications";
 import type { RootStackParamList } from "../navigation/RootNavigator";
@@ -53,7 +46,7 @@ export function HomeScreen() {
     await ensureNotificationPermission();
     playStart();
     useGame.setState({ status: "ready", score: 0 });
-    start(restDurationSec);
+    start(restDurationSec, selectedGame);
     nav.navigate("Game");
   };
 
@@ -130,6 +123,14 @@ export function HomeScreen() {
               sub="PIXEL WINGS"
               icon={<BirdIcon size={56} />}
             />
+            <GameCard
+              type="galaga"
+              active={selectedGame === "galaga"}
+              onPress={() => setSelectedGame("galaga")}
+              label="GALAGA"
+              sub="STAR SWARM"
+              icon={<GalagaIcon size={56} />}
+            />
           </View>
         </View>
 
@@ -168,6 +169,11 @@ export function HomeScreen() {
               label="FLAPPY"
               value={highScores.flappy}
               accent={colors.amber}
+            />
+            <ScoreBox
+              label="GALAGA"
+              value={Number.isFinite(highScores.galaga) ? highScores.galaga : 0}
+              accent={colors.primaryLight}
             />
           </View>
         </View>
@@ -417,12 +423,13 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.onPrimary },
   chipTextIdle: { color: colors.text },
 
-  gameGrid: { flexDirection: "row", gap: 8 },
+  gameGrid: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   gameCard: {
-    flex: 1,
-    padding: 10,
+    flexBasis: "31%",
+    flexGrow: 1,
+    padding: 8,
     alignItems: "center",
-    gap: 6,
+    gap: 4,
     borderTopWidth: 3,
     borderLeftWidth: 3,
     borderBottomWidth: 3,
@@ -462,8 +469,8 @@ const styles = StyleSheet.create({
   },
   gameCardNum: { fontFamily: fonts.body, fontSize: 12, letterSpacing: 1 },
   gameCardIconWrap: {
-    width: 72,
-    height: 72,
+    width: 56,
+    height: 56,
     backgroundColor: colors.surfaceLow,
     alignItems: "center",
     justifyContent: "center",
@@ -561,11 +568,12 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     letterSpacing: 2,
   },
-  scoreGrid: { flexDirection: "row", gap: 8 },
+  scoreGrid: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   scoreBox: {
-    flex: 1,
+    flexBasis: "31%",
+    flexGrow: 1,
     backgroundColor: colors.surfaceLow,
-    padding: 8,
+    padding: 6,
     borderWidth: 2,
     borderColor: "#000",
     borderTopColor: "#000",
@@ -579,9 +587,9 @@ const styles = StyleSheet.create({
   },
   scoreBoxLabel: {
     fontFamily: fonts.body,
-    fontSize: 12,
+    fontSize: 10,
     color: colors.textMuted,
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   scoreBoxBest: {
     fontFamily: fonts.body,
@@ -590,8 +598,8 @@ const styles = StyleSheet.create({
   },
   scoreBoxValue: {
     fontFamily: fonts.pixel,
-    fontSize: 18,
-    marginTop: 6,
+    fontSize: 14,
+    marginTop: 4,
     letterSpacing: 1,
     textAlign: "center",
   },

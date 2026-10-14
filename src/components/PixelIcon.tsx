@@ -84,3 +84,22 @@ export function BirdIcon({ size = 48 }: IconProps) {
     </Svg>
   );
 }
+
+export function GalagaIcon({ size = 48, color = colors.primary }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" shapeRendering="crispEdges">
+      {/* Ship body */}
+      <Rect x={7} y={3} width={2} height={2} fill={color} />
+      <Rect x={6} y={5} width={4} height={2} fill={color} />
+      <Rect x={5} y={7} width={6} height={2} fill={color} />
+      <Rect x={3} y={9} width={10} height={2} fill={color} />
+      <Rect x={2} y={11} width={4} height={2} fill={color} />
+      <Rect x={10} y={11} width={4} height={2} fill={color} />
+      {/* Wings */}
+      <Rect x={1} y={7} width={2} height={4} fill={colors.primaryLight} />
+      <Rect x={13} y={7} width={2} height={4} fill={colors.primaryLight} />
+      {/* Cockpit highlight */}
+      <Rect x={7} y={6} width={2} height={1} fill={colors.surfaceLowest} />
+    </Svg>
+  );
+}

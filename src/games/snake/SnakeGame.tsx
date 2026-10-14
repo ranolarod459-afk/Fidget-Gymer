@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, memo } from "react";
 import {
   View,
   Text,
@@ -24,12 +24,162 @@ import {
 } from "./snakeLogic";
 import { hapticLight } from "../../utils/haptics";
 
+// Board dimensions constant, used both for viewBox and wall rendering.
+const BOARD_SIZE = 20;
+const WALL = 0.15;
+const EYE_SIZE = 0.18;
+const EYE_OFFSET = 0.22;
+
+// ----- Static board (never re-renders during play) -----
+
+const SnakeBoard = memo(function SnakeBoard({ size }: { size: number }) {
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`}
+      style={StyleSheet.absoluteFill}>
+      {/* Play area background */}
+      <Rect
+        x={0}
+        y={0}
+        width={BOARD_SIZE}
+        height={BOARD_SIZE}
+        fill={colors.surfaceLowest}
+      />
+      {/* Wall border — 4 rects, drawn once */}
+      <Rect
+        x={0}
+        y={0}
+        width={BOARD_SIZE}
+        height={WALL}
+        fill={colors.primaryDark}
+      />
+      <Rect
+        x={0}
+        y={BOARD_SIZE - WALL}
+        width={BOARD_SIZE}
+        height={WALL}
+        fill={colors.primaryDark}
+      />
+      <Rect
+        x={0}
+        y={0}
+        width={WALL}
+        height={BOARD_SIZE}
+        fill={colors.primaryDark}
+      />
+      <Rect
+        x={BOARD_SIZE - WALL}
+        y={0}
+        width={WALL}
+        height={BOARD_SIZE}
+        fill={colors.primaryDark}
+      />
+    </Svg>
+  );
+});
+
+// ----- Moving entities (food + snake) -----
+
+const SnakeEntities = memo(function SnakeEntities({
+  state,
+  size,
+}: {
+  state: SnakeState;
+  size: number;
+}) {
+  return (
+    <Svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`}
+      style={StyleSheet.absoluteFill}>
+      {/* Food */}
+      <Rect
+        x={state.food.x + 0.15}
+        y={state.food.y + 0.15}
+        width={0.7}
+        height={0.7}
+        fill={colors.amber}
+      />
+
+      {/* Snake */}
+      {state.snake.map((p, i) => {
+        const isHead = i === 0;
+        const x = p.x + 0.05;
+        const y = p.y + 0.05;
+        const w = 0.9;
+
+        let eye1 = { x: 0, y: 0 };
+        let eye2 = { x: 0, y: 0 };
+        if (isHead) {
+          if (state.dir === "right") {
+            eye1 = { x: x + w - EYE_OFFSET - EYE_SIZE, y: y + EYE_OFFSET };
+            eye2 = {
+              x: x + w - EYE_OFFSET - EYE_SIZE,
+              y: y + w - EYE_OFFSET - EYE_SIZE,
+            };
+          } else if (state.dir === "left") {
+            eye1 = { x: x + EYE_OFFSET, y: y + EYE_OFFSET };
+            eye2 = { x: x + EYE_OFFSET, y: y + w - EYE_OFFSET - EYE_SIZE };
+          } else if (state.dir === "up") {
+            eye1 = { x: x + EYE_OFFSET, y: y + EYE_OFFSET };
+            eye2 = { x: x + w - EYE_OFFSET - EYE_SIZE, y: y + EYE_OFFSET };
+          } else {
+            eye1 = { x: x + EYE_OFFSET, y: y + w - EYE_OFFSET - EYE_SIZE };
+            eye2 = {
+              x: x + w - EYE_OFFSET - EYE_SIZE,
+              y: y + w - EYE_OFFSET - EYE_SIZE,
+            };
+          }
+        }
+
+        return (
+          <React.Fragment key={i}>
+            <Rect
+              x={x}
+              y={y}
+              width={w}
+              height={w}
+              fill={isHead ? colors.primaryLight : colors.primary}
+              rx={0.15}
+            />
+            {isHead && (
+              <>
+                <Rect
+                  x={eye1.x}
+                  y={eye1.y}
+                  width={EYE_SIZE}
+                  height={EYE_SIZE}
+                  fill={colors.surfaceLowest}
+                />
+                <Rect
+                  x={eye2.x}
+                  y={eye2.y}
+                  width={EYE_SIZE}
+                  height={EYE_SIZE}
+                  fill={colors.surfaceLowest}
+                />
+              </>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </Svg>
+  );
+});
+
+// ----- Main component -----
+
 export function SnakeGame() {
   const phase = useWorkout((s) => s.phase);
   const submitScore = useWorkout((s) => s.submitScore);
   const setStatus = useGame((s) => s.setStatus);
   const setScore = useGame((s) => s.setScore);
   const status = useGame((s) => s.status);
+  const countdown = useWorkout((s) => s.countdown);
+  const uiBlocked = useWorkout((s) => s.uiBlocked);
 
   const [state, setState] = useState<SnakeState>(() =>
     createSnake(DEFAULT_COLS, DEFAULT_ROWS),
@@ -37,7 +187,6 @@ export function SnakeGame() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  // Board is square and sized to the width of its container.
   const [boardSize, setBoardSize] = useState(0);
   const onBoardLayout = (e: LayoutChangeEvent) => {
     const { width } = e.nativeEvent.layout;
@@ -45,9 +194,10 @@ export function SnakeGame() {
   };
 
   const isAlive = state.alive;
-  const gameActive = phase === "playing" && isAlive;
+  const countdownReady = countdown === null || countdown === 0;
+  const gameActive =
+    phase === "playing" && isAlive && countdownReady && !uiBlocked;
 
-  // Main game loop. Advances the snake on a fixed tick.
   useGameLoop(gameActive, (delta) => {
     const prev = stateRef.current;
     const acc = prev.accumulator + delta;
@@ -68,8 +218,6 @@ export function SnakeGame() {
     }
   });
 
-  // Report death exactly once per life. Uses a ref so the state store's
-  // `status` value can't cause a double-fire on Play Again.
   const deathReportedRef = useRef(false);
   useEffect(() => {
     if (!isAlive && !deathReportedRef.current) {
@@ -83,7 +231,6 @@ export function SnakeGame() {
     }
   }, [isAlive, setStatus, submitScore, state.score]);
 
-  // Reset on Play Again (store flips back to 'ready').
   useEffect(() => {
     if (status === "ready") {
       const fresh = createSnake(DEFAULT_COLS, DEFAULT_ROWS);
@@ -94,7 +241,6 @@ export function SnakeGame() {
     }
   }, [status, setScore]);
 
-  // Reset on new workout.
   useEffect(() => {
     if (phase === "idle") {
       const fresh = createSnake(DEFAULT_COLS, DEFAULT_ROWS);
@@ -106,13 +252,35 @@ export function SnakeGame() {
     }
   }, [phase, setStatus, setScore]);
 
-  // Swipe controls — work anywhere in the whole frame.
   const pan = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderRelease: (_, g) => {
-        const { dx, dy } = g;
+      onStartShouldSetPanResponder: () => {
+        const s = useWorkout.getState();
+        const g = useGame.getState();
+        if (s.phase !== "playing") return false;
+        if (s.uiBlocked) return false;
+        if (s.countdown !== null && s.countdown > 0) return false;
+        if (g.status === "dead") return false;
+        return true;
+      },
+      onMoveShouldSetPanResponder: () => {
+        const s = useWorkout.getState();
+        const g = useGame.getState();
+        if (s.phase !== "playing") return false;
+        if (s.uiBlocked) return false;
+        if (s.countdown !== null && s.countdown > 0) return false;
+        if (g.status === "dead") return false;
+        return true;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const s = useWorkout.getState();
+        const gs = useGame.getState();
+        if (s.phase !== "playing") return;
+        if (s.uiBlocked) return;
+        if (s.countdown !== null && s.countdown > 0) return;
+        if (gs.status === "dead") return;
+
+        const { dx, dy } = gestureState;
         const minSwipe = 15;
         if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
 
@@ -134,51 +302,17 @@ export function SnakeGame() {
     }),
   ).current;
 
-  const cols = state.cols;
-  const rows = state.rows;
-  const cell = boardSize > 0 ? boardSize / cols : 0;
-
   return (
     <View style={styles.wrap} {...pan.panHandlers}>
-      {/* Board container — sized to width, aspect 1, pinned to top */}
       <View style={styles.boardContainer} onLayout={onBoardLayout}>
         {boardSize > 0 && (
-          <Svg width={boardSize} height={boardSize}>
-            {/* Plain dark board background — no grid rects (perf) */}
-            <Rect
-              x={0}
-              y={0}
-              width={boardSize}
-              height={boardSize}
-              fill={colors.surfaceLowest}
-            />
-
-            {/* Food */}
-            <Rect
-              x={state.food.x * cell + cell * 0.15}
-              y={state.food.y * cell + cell * 0.15}
-              width={cell * 0.7}
-              height={cell * 0.7}
-              fill={colors.amber}
-            />
-
-            {/* Snake */}
-            {state.snake.map((p, i) => (
-              <Rect
-                key={i}
-                x={p.x * cell + 1}
-                y={p.y * cell + 1}
-                width={cell - 2}
-                height={cell - 2}
-                fill={i === 0 ? colors.primaryLight : colors.primary}
-                rx={2}
-              />
-            ))}
-          </Svg>
+          <>
+            <SnakeBoard size={boardSize} />
+            <SnakeEntities state={state} size={boardSize} />
+          </>
         )}
       </View>
 
-      {/* Control zone — fills ALL remaining vertical space. Swipe surface. */}
       <View style={styles.controlZone} pointerEvents="none">
         <Text style={styles.controlHint}>▼ SWIPE ANYWHERE TO STEER</Text>
         <View style={styles.controlDots}>
@@ -198,16 +332,17 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     paddingVertical: 8,
-    // no justifyContent — the board takes width, control zone flexes
   },
   boardContainer: {
     width: "100%",
-    aspectRatio: 1, // square, sized from width
+    aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
   },
   controlZone: {
-    flex: 1, // eats all remaining vertical space
+    flex: 1,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 12,

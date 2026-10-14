@@ -2,7 +2,7 @@ import { create } from "zustand";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type GameType = "snake" | "flappy";
+export type GameType = "snake" | "flappy" | "galaga";
 
 interface SettingsState {
   restDurationSec: number;
@@ -31,6 +31,6 @@ export const useSettings = create<SettingsState>()(
     {
       name: "fg-settings",
       storage: createJSONStorage(() => AsyncStorage),
-    },
-  ),
+    }
+  )
 );

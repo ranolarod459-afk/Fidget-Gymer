@@ -1,61 +1,60 @@
 import React from "react";
-import { View, Text, StyleSheet, Modal } from "react-native";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { colors, fonts } from "../theme/colors";
 import { useWorkout } from "../state/workoutStore";
 import { PixelButton } from "./PixelButton";
 import { hapticMedium } from "../utils/haptics";
+
+const { width: W, height: H } = Dimensions.get("window");
 
 export function RestOverModal() {
   const phase = useWorkout((s) => s.phase);
   const done = useWorkout((s) => s.userDoneWithSet);
   const sets = useWorkout((s) => s.setsCompleted);
 
-  const visible = phase === "restOver";
+  if (phase !== "restOver") return null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={styles.dot} />
-              <Text style={styles.headerText}>SYS.ALERT</Text>
-            </View>
-            <Text style={styles.headerRight}>PAUSED</Text>
+    <View style={styles.overlay} pointerEvents="box-none">
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.dot} />
+            <Text style={styles.headerText}>SYS.ALERT</Text>
           </View>
-
-          <Text style={styles.title}>REST OVER!</Text>
-          <Text style={styles.sub}>SET {sets + 1} — GO LIFT</Text>
-          <Text style={styles.hint}>
-            Game frozen. Rerack and hit your reps.
-          </Text>
-
-          <PixelButton
-            label="SET DONE — RESUME"
-            fullWidth
-            onPress={() => {
-              hapticMedium();
-              done();
-            }}
-            style={{ marginTop: 16 }}
-          />
+          <Text style={styles.headerRight}>PAUSED</Text>
         </View>
+
+        <Text style={styles.title}>REST OVER!</Text>
+        <Text style={styles.sub}>SET {sets} — GO LIFT</Text>
+        <Text style={styles.hint}>Game frozen. Rerack and hit your reps.</Text>
+
+        <PixelButton
+          label="SET DONE — RESUME"
+          fullWidth
+          onPress={() => {
+            hapticMedium();
+            done();
+          }}
+          style={{ marginTop: 16 }}
+        />
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: W,
+    height: H,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.85)",
     padding: 24,
+    zIndex: 50,
   },
   card: {
     backgroundColor: colors.surfaceHigh,

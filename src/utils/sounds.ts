@@ -38,9 +38,18 @@ export async function preloadSounds() {
   }
 }
 
-function play(player: AudioPlayer | null) {
+const lastPlayedAt: Record<string, number> = {};
+
+function play(player: AudioPlayer | null, key: string = "default") {
   if (!player) return;
   if (!soundsOn()) return;
+
+  // Throttle to 80ms between plays of the same sound. Prevents audio
+  // spam during score bursts (e.g. Galaga with rapid auto-fire hits).
+  const now = Date.now();
+  if (lastPlayedAt[key] && now - lastPlayedAt[key] < 80) return;
+  lastPlayedAt[key] = now;
+
   try {
     player.seekTo(0);
     player.play();
@@ -50,19 +59,19 @@ function play(player: AudioPlayer | null) {
 }
 
 export function playFlap() {
-  play(flapPlayer);
+  play(flapPlayer, "flap");
 }
 export function playScore() {
-  play(scorePlayer);
+  play(scorePlayer, "score");
 }
 export function playDeath() {
-  play(deathPlayer);
+  play(deathPlayer, "death");
 }
 export function playRestOver() {
-  play(restOverPlayer);
+  play(restOverPlayer, "restover");
 }
 export function playStart() {
-  play(startPlayer);
+  play(startPlayer, "start");
 }
 
 export async function unloadSounds() {

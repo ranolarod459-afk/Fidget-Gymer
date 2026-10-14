@@ -1,19 +1,20 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useKeepAwake } from "expo-keep-awake";
-
+import { CountdownOverlay } from "../components/CountdownOverlay";
 import { useGame } from "../state/gameStore";
 import { colors, fonts } from "../theme/colors";
-import { useSettings } from "../state/settingsStore";
 import { useWorkout } from "../state/workoutStore";
 import { useRestTimer } from "../hooks/useRestTimer";
 import { SnakeGame } from "../games/snake/SnakeGame";
 import { FlappyGame } from "../games/flappy/FlappyGame";
+import { GalagaGame } from "../games/galaga/GalagaGame";
 import { GameOverOverlay } from "../components/GameOverOverlay";
 import { RestOverModal } from "../components/RestOverModal";
 import { PauseOverlay } from "../components/PauseOverlay";
+import { GamePickerOverlay } from "../components/GamePickerOverlay";
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -25,10 +26,6 @@ export function GameScreen() {
   useKeepAwake();
   useRestTimer();
 
-  useEffect(() => {
-    useGame.setState({ status: "ready", score: 0 });
-  }, [selectedGame]);
-
   const nav = useNavigation<any>();
   const phase = useWorkout((s) => s.phase);
   const remaining = useWorkout((s) => s.restRemainingSec);
@@ -36,8 +33,15 @@ export function GameScreen() {
   const sets = useWorkout((s) => s.setsCompleted);
   const pause = useWorkout((s) => s.pause);
   const quit = useWorkout((s) => s.quit);
-  const selectedGame = useSettings((s) => s.selectedGame);
+  const activeGame = useWorkout((s) => s.activeGame);
   const gameScore = useGame((s) => s.score);
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const setUiBlocked = useWorkout((s) => s.setUiBlocked);
+
+  useEffect(() => {
+    useGame.setState({ status: "ready", score: 0 });
+  }, [activeGame]);
 
   const progress = total > 0 ? 1 - remaining / total : 0;
 
@@ -47,108 +51,138 @@ export function GameScreen() {
   };
 
   const resetGame = () => {
-    // Reset the game store so the overlay closes and status goes back to ready.
     useGame.setState({ status: "ready", score: 0 });
   };
 
   const onPlayAgain = () => {
     resetGame();
+    useWorkout.getState().beginCountdown();
   };
 
   return (
-    <SafeAreaView
-      style={styles.safe}
-      edges={["top", "left", "right", "bottom"]}>
-      <View style={styles.wrap}>
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <Pressable onPress={onQuit} style={styles.topBtn}>
-            <Text style={styles.topBtnText}>[X] QUIT</Text>
-          </Pressable>
-          <View style={styles.topCenter}>
-            <View style={styles.topDot} />
-            <Text style={styles.topCenterText}>CARTRIDGE_02</Text>
-          </View>
-          <Pressable
-            onPress={() =>
-              phase === "paused" ? useWorkout.getState().resume() : pause()
-            }
-            style={styles.topBtn}>
-            <Text style={styles.topBtnText}>
-              {phase === "paused" ? "[▶] RESUME" : "[||] PAUSE"}
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* HUD */}
-        <View style={styles.hudRow}>
-          <View style={styles.hudTimer}>
-            <View style={styles.hudTimerHeader}>
-              <Text style={styles.hudLabel}>REST TIMER</Text>
-              <Text style={styles.hudSync}>● SYNC</Text>
-            </View>
-            <Text style={styles.hudTimerValue}>{fmt(remaining)}</Text>
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.min(100, progress * 100)}%` },
-                ]}
-              />
-            </View>
-          </View>
-          <View style={styles.hudWorkout}>
-            <Text style={styles.hudLabel}>WORKOUT</Text>
-            <Text style={styles.hudSet}>SET {sets}</Text>
-            <Text style={styles.hudReps}>READY</Text>
-          </View>
-        </View>
-
-        {/* Game frame — now flexes to fill vertical space */}
-        <View style={styles.frame}>
-          <View style={styles.frameHeader}>
-            <View style={styles.frameHeaderLeft}>
-              <View style={styles.frameDot} />
-              <Text style={styles.frameHeaderText}>DOT MATRIX HUD</Text>
-            </View>
-            <View style={styles.frameHeaderRight}>
-              <Text style={styles.frameHeaderScore}>
-                GAME: {selectedGame.toUpperCase()}
+    <View style={styles.root}>
+      <SafeAreaView
+        style={styles.safe}
+        edges={["top", "left", "right", "bottom"]}>
+        <View style={styles.wrap}>
+          {/* Top bar */}
+          <View style={styles.topBar}>
+            <Pressable onPress={onQuit} style={styles.topBtn}>
+              <Text style={styles.topBtnText}>[X] HOME</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setUiBlocked(true);
+                setPickerOpen(true);
+              }}
+              style={styles.switchBtn}>
+              <Text style={styles.switchBtnText}>SWITCH</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                const cd = useWorkout.getState().countdown;
+                if (cd !== null && cd > 0) return; // don't pause during countdown
+                if (phase === "paused") {
+                  useWorkout.getState().resume();
+                } else {
+                  pause();
+                }
+              }}
+              style={styles.topBtn}>
+              <Text style={styles.topBtnText}>
+                {phase === "paused" ? "[▶] RESUME" : "[||] PAUSE"}
               </Text>
-              <Text style={styles.frameHeaderLiveScore}>
-                SCORE {gameScore.toString().padStart(3, "0")}
-              </Text>
+            </Pressable>
+          </View>
+
+          {/* HUD */}
+          <View style={styles.hudRow}>
+            <View style={styles.hudTimer}>
+              <View style={styles.hudTimerHeader}>
+                <Text style={styles.hudLabel}>REST TIMER</Text>
+                <Text style={styles.hudSync}>● SYNC</Text>
+              </View>
+              <Text style={styles.hudTimerValue}>{fmt(remaining)}</Text>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(100, progress * 100)}%` },
+                  ]}
+                />
+              </View>
+            </View>
+            <View style={styles.hudWorkout}>
+              <Text style={styles.hudLabel}>WORKOUT</Text>
+              <Text style={styles.hudSet}>SET {sets}</Text>
+              <Text style={styles.hudReps}>READY</Text>
             </View>
           </View>
-          <View style={styles.frameInner}>
-            {selectedGame === "flappy" ? <FlappyGame /> : <SnakeGame />}
-            <View style={styles.frameStatus}>
-              <Text style={styles.frameStatusText}>TIMER: CONTINUOUS</Text>
-              <Text style={[styles.frameStatusText, { color: colors.amber }]}>
-                CLK: 60HZ
-              </Text>
+
+          {/* Game frame */}
+          <View style={styles.frame}>
+            <View style={styles.frameHeader}>
+              <View style={styles.frameHeaderLeft}>
+                <View style={styles.frameDot} />
+                <Text style={styles.frameHeaderText}>DOT MATRIX HUD</Text>
+              </View>
+              <View style={styles.frameHeaderRight}>
+                <Text style={styles.frameHeaderScore}>
+                  GAME: {activeGame.toUpperCase()}
+                </Text>
+                <Text style={styles.frameHeaderLiveScore}>
+                  SCORE {gameScore.toString().padStart(3, "0")}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.frameInner}>
+              {activeGame === "flappy" ? (
+                <FlappyGame />
+              ) : activeGame === "galaga" ? (
+                <GalagaGame />
+              ) : (
+                <SnakeGame />
+              )}
+              <View style={styles.frameStatus}>
+                <Text style={styles.frameStatusText}>TIMER: CONTINUOUS</Text>
+                <Text style={[styles.frameStatusText, { color: colors.amber }]}>
+                  CLK: 60HZ
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Bottom caption */}
-        <View style={styles.bottomCaption}>
-          <Text style={styles.bottomCaptionText}>SERIAL: FG-884-J</Text>
-          <Text style={styles.bottomCaptionText}>BATTERY: HIGH</Text>
+          {/* Bottom caption */}
+          <View style={styles.bottomCaption}>
+            <Text style={styles.bottomCaptionText}>SERIAL: FG-884-J</Text>
+            <Text style={styles.bottomCaptionText}>BATTERY: HIGH</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
 
+      <CountdownOverlay />
+      <GamePickerOverlay
+        visible={pickerOpen}
+        onClose={() => {
+          setPickerOpen(false);
+          setUiBlocked(false);
+          useWorkout.getState().beginCountdown();
+        }}
+      />
       <RestOverModal />
       <GameOverOverlay onPlayAgain={onPlayAgain} onQuit={onQuit} />
       <PauseOverlay onQuit={onQuit} />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    position: "relative",
+  },
   safe: { flex: 1, backgroundColor: colors.bg },
-  // The wrap is now a flex column that fills the safe area.
-  // Everything inside is spaced by gap, and the frame takes the leftover height.
   wrap: {
     flex: 1,
     paddingHorizontal: 12,
@@ -159,10 +193,11 @@ const styles = StyleSheet.create({
 
   topBar: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "stretch",
+    gap: 6,
   },
   topBtn: {
+    flex: 1,
     backgroundColor: colors.surfaceHigh,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -174,20 +209,38 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.surfaceHighest,
     borderBottomColor: colors.surfaceLowest,
     borderRightColor: colors.surfaceLowest,
+    alignItems: "center",
+    justifyContent: "center",
   },
   topBtnText: {
     fontFamily: fonts.pixel,
-    fontSize: 9,
+    fontSize: 8,
     color: colors.primary,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
+    textAlign: "center",
   },
-  topCenter: { flexDirection: "row", alignItems: "center", gap: 6 },
-  topDot: { width: 6, height: 6, backgroundColor: colors.primary },
-  topCenterText: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    color: colors.textMuted,
-    letterSpacing: 2,
+  switchBtn: {
+    flex: 1,
+    backgroundColor: colors.surfaceHigh,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderTopColor: colors.surfaceHighest,
+    borderLeftColor: colors.surfaceHighest,
+    borderBottomColor: colors.surfaceLowest,
+    borderRightColor: colors.surfaceLowest,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  switchBtnText: {
+    fontFamily: fonts.pixel,
+    fontSize: 9,
+    color: colors.amber,
+    letterSpacing: 0.5,
+    textAlign: "center",
   },
 
   hudRow: { flexDirection: "row", gap: 8 },
@@ -201,6 +254,7 @@ const styles = StyleSheet.create({
     borderLeftColor: "#000",
     borderBottomColor: colors.surfaceHighest,
     borderRightColor: colors.surfaceHighest,
+    alignItems: "center",
   },
   hudWorkout: {
     flex: 1,
@@ -235,8 +289,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.pixel,
     fontSize: 28,
     color: colors.amber,
-    letterSpacing: 2,
+    letterSpacing: 1,
     marginTop: 6,
+    textAlign: "center",
   },
   progressTrack: {
     height: 6,
@@ -263,7 +318,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // The frame now takes all remaining vertical space between HUD and caption.
   frame: {
     flex: 1,
     backgroundColor: colors.surfaceHigh,
@@ -306,14 +360,11 @@ const styles = StyleSheet.create({
     color: colors.amber,
     letterSpacing: 1,
   },
-  // No more aspectRatio. It fills whatever height the parent gives it.
   frameInner: {
     flex: 1,
     backgroundColor: colors.surfaceLowest,
     borderWidth: 2,
     borderColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
     position: "relative",
     overflow: "hidden",
   },

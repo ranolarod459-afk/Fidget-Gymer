@@ -11,7 +11,7 @@
 // ----- Tunable constants -----
 
 /** Downward acceleration, in normalized units / second^2. */
-export const GRAVITY = 1.9;
+export const GRAVITY = 1.8;
 
 /** Upward impulse applied on each tap, in normalized units / second. */
 export const FLAP_VELOCITY = -0.6;
@@ -26,7 +26,7 @@ export const PIPE_WIDTH = 0.16;
 export const PIPE_GAP = 0.26;
 
 /** Seconds between pipe spawns. */
-export const PIPE_SPAWN_INTERVAL = 1.48;
+export const PIPE_SPAWN_INTERVAL = 1.61;
 
 /** Fixed x position of the bird (doesn't move horizontally). */
 export const BIRD_X = 0.22;

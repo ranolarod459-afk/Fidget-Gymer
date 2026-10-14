@@ -23,7 +23,7 @@ import { hapticLight } from "../../utils/haptics";
  * Minimum ms between React re-renders. Physics runs every frame regardless.
  * 28ms ≈ 35fps. Raise if still laggy, lower if you have headroom.
  */
-const RENDER_THROTTLE_MS = 51;
+const RENDER_THROTTLE_MS = 16;
 
 // ----- Static background layer -----
 // Rendered once, never re-renders during play.
@@ -173,7 +173,12 @@ export function FlappyGame() {
     setBoard({ w: width, h: height });
   };
 
-  const gameActive = phase === "playing" && alive;
+  const countdown = useWorkout((s) => s.countdown);
+  const uiBlocked = useWorkout((s) => s.uiBlocked);
+
+  const countdownReady = countdown === null || countdown === 0;
+  const gameActive =
+    phase === "playing" && alive && countdownReady && !uiBlocked;
 
   useGameLoop(gameActive, (delta) => {
     const prev = stateRef.current;
@@ -227,6 +232,13 @@ export function FlappyGame() {
 
   const onFlap = () => {
     if (!stateRef.current.alive) return;
+    const s = useWorkout.getState();
+    const g = useGame.getState();
+    if (s.phase !== "playing") return;
+    if (s.uiBlocked) return;
+    if (s.countdown !== null && s.countdown > 0) return;
+    if (g.status === "dead") return;
+
     const next = flap(stateRef.current);
     stateRef.current = next;
     lastRenderRef.current = 0;
@@ -240,7 +252,15 @@ export function FlappyGame() {
     <View
       style={styles.wrap}
       onLayout={onBoardLayout}
-      onStartShouldSetResponder={() => true}
+      onStartShouldSetResponder={() => {
+        const s = useWorkout.getState();
+        const g = useGame.getState();
+        if (s.phase !== "playing") return false;
+        if (s.uiBlocked) return false;
+        if (s.countdown !== null && s.countdown > 0) return false;
+        if (g.status === "dead") return false;
+        return true;
+      }}
       onResponderGrant={onFlap}>
       {ready && (
         <>

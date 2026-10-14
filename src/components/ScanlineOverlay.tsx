@@ -8,7 +8,7 @@ const STRIPE_GAP = 1; // gap between stripes
 export function ScanlineOverlay() {
   if (!SHOW_SCANLINES) return null;
 
-  const { width, height } = Dimensions.get("window");
+  const { width, height } = Dimensions.get("screen");
   const total = Math.ceil(height / (STRIPE_HEIGHT + STRIPE_GAP));
 
   return (
